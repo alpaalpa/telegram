@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="telegram-alpa",  # Replace with your own username
-    version="0.0.1",
+    version="0.1.0",
     author="Albert Pang",
     author_email="alpaaccount@mac.com",
     description="Python Wrapper to TelegramBot API",
@@ -20,6 +20,7 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=[
+        "aiohttp",
         "requests",
         "urllib3"
     ]

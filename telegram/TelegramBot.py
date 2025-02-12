@@ -4,6 +4,7 @@
 TelegramBot.py
 '''
 
+import aiohttp
 import json
 import logging
 import requests
@@ -72,9 +73,37 @@ class TelegramBot():
 
         msg_sent = False
         attempts = 0
-        while not msg_sent and attempts <= self._HTTP_TIMEOUT:
+        while not msg_sent and attempts <= self._RETRY:
             attempts += 1
             return_msg_json = self.post_cmd('sendMessage', j)
+            return_msg = json.loads(return_msg_json)
+            if return_msg['ok']:
+                msg_sent = True
+
+        if not msg_sent:
+            logger.error("Failed to send message. Attempts: {}".format(attempts))
+        return return_msg_json
+
+    async def send_telegram_async(self, chat_id, message, muted=False, parse_mode=None):
+        '''
+        muted will turn on the disable_notification atribute (boolean)
+        Sends the message silently. iOS users will not receive a notification, Android users will receive a notification with no sound.
+        '''
+        data = {}
+        data['chat_id'] = chat_id
+        if muted:
+            data['disable_notification'] = True
+        data['text'] = message
+        if parse_mode == 'Markdown' or parse_mode == 'HTML':
+            data['parse_mode'] = parse_mode
+
+        j = json.dumps(data)
+
+        msg_sent = False
+        attempts = 0
+        while not msg_sent and attempts <= self._RETRY:
+            attempts += 1
+            return_msg_json = await self.post_cmd_async('sendMessage', j)
             return_msg = json.loads(return_msg_json)
             if return_msg['ok']:
                 msg_sent = True
@@ -119,9 +148,32 @@ class TelegramBot():
             result = {}
             result['ok'] = False
             result['description'] = "Connection Error: {}".format(e)
-            return(json.dumps(result))
+            return json.dumps(result)
 
         return r.content.decode()
+
+    async def post_cmd_async(self, cmd, json_data, raw=False):
+        url = self._API_URL + "bot" + self.bot_id + "/" + cmd
+        try:
+            # Use aiohttp for async HTTP requests
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    data=json_data,
+                    headers={"content-type": "application/json"},
+                    timeout=self._HTTP_TIMEOUT  # Optional: Set timeout if needed
+                ) as response:
+                    if raw:
+                        raw_msg = await response.read()  # Return raw response if requested
+                        return raw_msg
+                    resp = await response.text()  # Return decoded text content
+                    return resp
+        except (aiohttp.ClientConnectionError, aiohttp.ClientTimeout) as e:
+            result = {
+                'ok': False,
+                'description': f"Connection Error: {e}"
+            }
+            return json.dumps(result)
 
     # TODO
     # Methods in the Telegram Bot API that has not been implemented which might be useful
